@@ -1,0 +1,290 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Microsoft.Office.Interop.Word;
+using iTextSharp.text.pdf.parser;
+using Application = System.Windows.Forms.Application;
+using System.Runtime.InteropServices;
+//using iTextSharp;
+using iTextSharp.text.pdf;
+using System.Collections;
+
+
+
+
+
+
+
+
+namespace opening_word_document
+{
+    public partial class MainForm : Form
+    {
+        private OpenFileDialog ofd;
+        private string pathToPdf;
+        private int _tUniqueWordsinPage;
+        private Words[] wordarray;
+        private List<Words> wordList; 
+        private List<string> nrSplittedWords;
+        private List<string> splittedWords;
+        private List<int> countList;
+
+        public MainForm()
+        {
+            InitializeComponent();
+            ofd = new OpenFileDialog();
+            _tUniqueWordsinPage = 0;
+            splittedWords=new List<string>();
+            countList=new List<int>();
+            wordList=new List<Words>();
+            nrSplittedWords=new List<string>();
+        }
+
+        
+        
+        private void ConvertButton_Click(object sender, EventArgs e)
+        {
+           
+
+            
+            //POS Tagging code
+            POSTagged post = new POSTagged();
+
+            POSTagger.mModelPath = "Models\\";
+
+            
+
+            string content = DocText.Text;
+
+            string[] tokenize = POSTagger.TokenizeSentence(content);
+            string[] POS = POSTagger.PosTagTokens(tokenize);
+            string POSTextbox = string.Empty;
+            for (int i = 0; i < POS.Length; i++)
+            {
+                //NN Noun, singular or mass
+                //NNS Noun, plural
+                //NNP Proper noun, singular
+                //NNPS Proper noun, plural
+                if (POS[i] == "NN" || POS[i] == "NNS" || POS[i] == "NNP" || POS[i] == "NNPS")
+                    POSTextbox = POSTextbox + (tokenize[i] + "/" + POS[i] + "  ");
+
+
+            }
+            post.PosTaggedText = POSTextbox;
+
+            this.Hide();
+
+            post.ShowDialog();
+          
+            this.Show();
+            
+        }
+
+        private void BrowseBtn_Click(object sender, EventArgs e)
+        {
+            
+            ofd.Filter = "PDF(*.pdf) | *.pdf|Word Document(*.doc)|*.doc|Open Doc Text(*.odt)|*.odt|Microsoft XPS(*.xps)|*.xps";
+            
+            
+            if (ofd.ShowDialog() == DialogResult.OK)
+            textPathName.Text = ofd.FileName;
+            
+            
+        }
+
+        private void ReadButton_Click(object sender, EventArgs e)
+        {
+            if (textPathName.Text.Length > 0)
+            {
+                ReadFileContent(textPathName.Text);
+            }
+            else
+            {
+                MessageBox.Show("Enter a valid file path");
+            }
+        }
+
+        public void ReadFileContent(string path)
+        {
+            string ext = Path.GetExtension(path);
+            if (ext == ".doc")
+            {
+
+                try
+                {
+                   
+
+                    Word2pdf w2p=new Word2pdf();
+                    pathToPdf= w2p.ConvertToPdf(path);
+                    ReadPdf(pathToPdf);
+
+                }
+
+                catch (COMException)
+                {
+                    MessageBox.Show("Unable to read this document.  It may be corrupt.");
+
+                }
+            }
+
+            else
+            {
+                ReadPdf(path);
+            }
+
+        }
+
+        public void ReadPdf(string path)
+        {
+            try
+            {
+               
+                PdfReader pdfr = new PdfReader(path);
+                StringBuilder pdfText = new StringBuilder();
+                
+              
+                //loop to read pdf page by page
+               
+                for (int page = 1; page <= pdfr.NumberOfPages; page++)
+                {
+                    ITextExtractionStrategy strategy = new SimpleTextExtractionStrategy();
+                    string currentText = PdfTextExtractor.GetTextFromPage(pdfr, page, strategy);
+                 
+                    
+
+                    currentText = Encoding.UTF8.GetString(ASCIIEncoding.Convert(Encoding.Default, Encoding.UTF8, Encoding.Default.GetBytes(currentText)));
+
+                  
+
+                   
+                    POSTagger.mModelPath = "Models\\";
+                    string[] tSplittedWords = GetWords(currentText);
+
+                    
+
+                    string[] POS = POSTagger.PosTagTokens(tSplittedWords);
+
+                    splittedWords.Clear();
+                    nrSplittedWords.Clear();
+                    countList.Clear();
+                    for (int i = 0; i < POS.Length; i++)
+                    {
+                        //NN Noun, singular or mass
+                        //NNS Noun, plural
+                        //NNP Proper noun, singular
+                        //NNPS Proper noun, plural
+                        if (POS[i] == "NN" || POS[i] == "NNS" || POS[i] == "NNP" || POS[i] == "NNPS")
+
+                            splittedWords.Add(tSplittedWords[i]); 
+
+
+                    }
+
+
+
+
+
+                    nrSplittedWords = splittedWords.Distinct().ToList();
+                    
+                    _tUniqueWordsinPage = nrSplittedWords.Count();
+                  
+                   
+                    for (int i = 0; i < nrSplittedWords.Count();i++ )
+                    {
+                        string searchItem = nrSplittedWords[i];
+
+                        
+                        int count=0;
+                        for (int j = 0; j < splittedWords.Count();j++ )
+                        {
+                            if (searchItem == splittedWords[j])
+                                count++;
+                        }
+                           
+                            countList.Add(count);
+
+                    }
+                    wordarray=new Words[nrSplittedWords.Count()];
+                   
+                    for (int i = 0; i < nrSplittedWords.Count(); i++)
+                    {
+                        wordarray[i] = new Words();
+                        wordarray[i].Word = nrSplittedWords[i];
+                        wordarray[i].DocFrequency = countList[i];
+                        wordarray[i].Pageno = page;
+                        wordList.Add(wordarray[i]);
+                        
+                    }
+
+                                      
+                        pdfText.Append(currentText);
+                    
+                }
+
+                pdfr.Close();
+                
+                foreach (Words w in wordList)
+                {
+                    int corf = 0;
+                    foreach (Words w1 in wordList)
+                    {
+                        if (w.Word == w1.Word)
+                            corf = corf + w1.DocFrequency;
+                     
+
+                    }
+
+                    w.CorpusFrequency = corf;
+                }
+                
+                //Diplaying words with their page no and Docfrequency using objects
+                foreach (Words w in wordList)
+                {
+                    WordnFrequencyTxtBox.AppendText(w.Pageno + "---------" + w.Word + "  -----------" + w.DocFrequency +"-----------"+w.CorpusFrequency+ System.Environment.NewLine);
+                }
+
+
+                
+            }
+            catch (Exception se)
+            {
+
+                MessageBox.Show(se.Message);
+            }
+
+        }
+
+         static string[] GetWords(string input)
+        {
+            MatchCollection matches = Regex.Matches(input, @"\b[\w']*\b");
+
+            var words = from m in matches.Cast<Match>()
+                        where !string.IsNullOrEmpty(m.Value)
+                        select TrimSuffix(m.Value);
+
+            return words.ToArray();
+        }
+
+        static string TrimSuffix(string word)
+        {
+            int apostrapheLocation = word.IndexOf('\'');
+            if (apostrapheLocation != -1)
+            {
+                word = word.Substring(0, apostrapheLocation);
+            }
+
+            return word;
+        }
+
+        
+        
+    }
+}
