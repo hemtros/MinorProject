@@ -12,5 +12,7 @@ namespace opening_word_document
         public int DocFrequency { get; set; }
         public int Pageno { get; set; }
         public int CorpusFrequency { get; set; }
+        public int[] SentencesOccuredIn { get; set; }
+        public Dictionary<int, int> SentencenoWithFrequency { get; set; }
     }
 }
