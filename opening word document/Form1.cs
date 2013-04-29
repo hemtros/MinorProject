@@ -23,7 +23,6 @@ using System.Collections;
 
 
 
-
 namespace opening_word_document
 {
     public partial class MainForm : Form
@@ -36,6 +35,9 @@ namespace opening_word_document
         private List<string> nrSplittedWords;
         private List<string> splittedWords;
         private List<int> countList;
+        private List<Sentences> sentenceList;
+        private Sentences[] sentencearray;
+        private int currentcountofsentences;
 
         public MainForm()
         {
@@ -46,6 +48,9 @@ namespace opening_word_document
             countList=new List<int>();
             wordList=new List<Words>();
             nrSplittedWords=new List<string>();
+            sentenceList=new List<Sentences>();
+            currentcountofsentences = 0;
+
         }
 
         
@@ -53,7 +58,7 @@ namespace opening_word_document
         private void ConvertButton_Click(object sender, EventArgs e)
         {
            
-
+            
             
             //POS Tagging code
             POSTagged post = new POSTagged();
@@ -168,7 +173,21 @@ namespace opening_word_document
                     POSTagger.mModelPath = "Models\\";
                     string[] tSplittedWords = GetWords(currentText);
 
-                    
+                    string[] sentences = POSTagger.SplitSentences(currentText);
+
+                    sentencearray=new Sentences[sentences.Count()];
+
+                    for (int i = 0; i < sentences.Count(); i++)
+                    {
+                        sentencearray[i]=new Sentences();
+                        
+                        sentencearray[i].SentenceNumber = i+1+currentcountofsentences;
+                        
+                        sentencearray[i].SentenceString = sentences[i];
+                        sentenceList.Add(sentencearray[i]);
+                    }
+
+                    currentcountofsentences += sentences.Count();
 
                     string[] POS = POSTagger.PosTagTokens(tSplittedWords);
 
@@ -196,7 +215,7 @@ namespace opening_word_document
                     
                     _tUniqueWordsinPage = nrSplittedWords.Count();
                   
-                   
+                   //calculating frequency of words in each page
                     for (int i = 0; i < nrSplittedWords.Count();i++ )
                     {
                         string searchItem = nrSplittedWords[i];
@@ -224,6 +243,8 @@ namespace opening_word_document
                         
                     }
 
+
+
                                       
                         pdfText.Append(currentText);
                     
@@ -243,6 +264,37 @@ namespace opening_word_document
                     }
 
                     w.CorpusFrequency = corf;
+                }
+                
+                
+                foreach(Words w in wordList)
+                {
+                    w.SentencenoWithFrequency=new Dictionary<int, int>();
+                    foreach(Sentences s in sentenceList)
+                    {
+                        int sentfreq = 0;
+                        string[] splittedwordsofsentence = GetWords(s.SentenceString);
+                        for(int i=0;i<splittedwordsofsentence.Count();i++)
+                        {
+                            if (w.Word == splittedwordsofsentence[i])
+                                sentfreq++;
+                        }
+                       w.SentencenoWithFrequency.Add(s.SentenceNumber,sentfreq);
+                    }
+                }
+
+                foreach(Words w in wordList)
+                {
+                    DocText.AppendText(w.Word+Environment.NewLine);
+                    List<KeyValuePair<int, int>> list = w.SentencenoWithFrequency.ToList();
+                    foreach (KeyValuePair<int, int> pair in list)
+                    {
+                        DocText.AppendText(pair.Key.ToString()+".......");
+                        DocText.AppendText(pair.Value.ToString()+Environment.NewLine);
+                        //Console.WriteLine(pair.Key);
+                        //Console.WriteLine(pair.Value.ToString());
+                    }
+                
                 }
                 
                 //Diplaying words with their page no and Docfrequency using objects
