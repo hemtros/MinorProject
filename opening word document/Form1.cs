@@ -38,6 +38,10 @@ namespace opening_word_document
         private List<Sentences> sentenceList;
         private Sentences[] sentencearray;
         private int currentcountofsentences;
+        private List<UniqueWords> UniqueWordList;
+        private UniqueWords[] uniquewordarray;
+        private List<string> UniqueWordsinCorpus;
+ 
 
         public MainForm()
         {
@@ -50,6 +54,9 @@ namespace opening_word_document
             nrSplittedWords=new List<string>();
             sentenceList=new List<Sentences>();
             currentcountofsentences = 0;
+            UniqueWordList=new List<UniqueWords>();
+           
+            UniqueWordsinCorpus=new List<string>();
 
         }
 
@@ -117,6 +124,7 @@ namespace opening_word_document
             }
         }
 
+      
         public void ReadFileContent(string path)
         {
             string ext = Path.GetExtension(path);
@@ -236,22 +244,34 @@ namespace opening_word_document
                     for (int i = 0; i < nrSplittedWords.Count(); i++)
                     {
                         wordarray[i] = new Words();
+
+                       
                         wordarray[i].Word = nrSplittedWords[i];
                         wordarray[i].DocFrequency = countList[i];
-                        wordarray[i].Pageno = page;
+                        wordarray[i].Pageno=page;
+                      
                         wordList.Add(wordarray[i]);
                         
                     }
 
-
+                    foreach (string s in nrSplittedWords)
+                    {
+                        UniqueWordsinCorpus.Add(s);
+                    }
 
                                       
                         pdfText.Append(currentText);
                     
-                }
+                }                  //end of page loop
 
                 pdfr.Close();
+
+
+                UniqueWordsinCorpus = UniqueWordsinCorpus.Distinct().ToList();
+                UniqueWordsinCorpus.Sort();
                 
+
+
                 foreach (Words w in wordList)
                 {
                     int corf = 0;
@@ -283,19 +303,90 @@ namespace opening_word_document
                     }
                 }
 
-                foreach(Words w in wordList)
+                
+
+                //wordList.Sort(delegate(Words w1, Words w2) { return w1.Word.CompareTo(w2.Word); });
+
+                wordList.Sort((w1,w2) => w1.Word.CompareTo(w2.Word));
+
+                
+                //copying words from wordList of Words to uniquewordlist of uniquewords while removing the redundant entry
+
+                uniquewordarray=new UniqueWords[UniqueWordsinCorpus.Count];
+                for (int i = 0; i < UniqueWordsinCorpus.Count; i++)
                 {
-                    DocText.AppendText(w.Word+Environment.NewLine);
-                    List<KeyValuePair<int, int>> list = w.SentencenoWithFrequency.ToList();
+                   
+
+                    uniquewordarray[i] = new UniqueWords();
+                    uniquewordarray[i].SentencenoWithFrequency = new Dictionary<int, int>();
+                    uniquewordarray[i].PagenoWithFrequency = new Dictionary<int, int>();
+                    foreach (Words w in wordList)
+                    {
+                        if (UniqueWordsinCorpus[i] == w.Word)
+                        {
+                            if(uniquewordarray[i].Term==null)
+                            uniquewordarray[i].Term = w.Word;
+
+                            
+                            uniquewordarray[i].CorpusFrequency = w.CorpusFrequency;
+
+                            uniquewordarray[i].SentencenoWithFrequency = w.SentencenoWithFrequency;
+                           
+                            uniquewordarray[i].PagenoWithFrequency.Add(w.Pageno,w.DocFrequency);
+                            
+                        }
+                    }
+
+                    UniqueWordList.Add(uniquewordarray[i]);
+                   
+                }
+
+
+                //Displaying uniquewords with their attribute values
+
+                foreach (UniqueWords uw in UniqueWordList)
+                {
+                    DocText.AppendText(uw.Term + "........");
+                    DocText.AppendText(uw.CorpusFrequency.ToString() + "\n");
+                    DocText.AppendText("Sentence no with frequency \n");
+                    List<KeyValuePair<int, int>> list = uw.SentencenoWithFrequency.ToList();
                     foreach (KeyValuePair<int, int> pair in list)
                     {
-                        DocText.AppendText(pair.Key.ToString()+".......");
-                        DocText.AppendText(pair.Value.ToString()+Environment.NewLine);
-                        //Console.WriteLine(pair.Key);
-                        //Console.WriteLine(pair.Value.ToString());
+                        if (pair.Value > 0)
+                        {
+                            DocText.AppendText(pair.Key.ToString() + ".......");
+                            DocText.AppendText(pair.Value.ToString() + Environment.NewLine);
+                        }
+
                     }
-                
+                    DocText.AppendText("Page no with freqency \n");
+                    List<KeyValuePair<int, int>> list1 = uw.PagenoWithFrequency.ToList();
+                    foreach (KeyValuePair<int, int> pair in list1)
+                    {
+                        if (pair.Value > 0)
+                        {
+                            DocText.AppendText(pair.Key.ToString() + ".......");
+                            DocText.AppendText(pair.Value.ToString() + Environment.NewLine);
+                        }
+
+                    }
                 }
+
+                    foreach (Words w in wordList)
+                    {
+                        DocText.AppendText(w.Word + Environment.NewLine);
+                        List<KeyValuePair<int, int>> list = w.SentencenoWithFrequency.ToList();
+                        foreach (KeyValuePair<int, int> pair in list)
+                        {
+                            if (pair.Value > 0)
+                            {
+                                DocText.AppendText(pair.Key.ToString() + ".......");
+                                DocText.AppendText(pair.Value.ToString() + Environment.NewLine);
+                            }
+
+                        }
+
+                    }
                 
                 //Diplaying words with their page no and Docfrequency using objects
                 foreach (Words w in wordList)
@@ -336,6 +427,8 @@ namespace opening_word_document
             return word;
         }
 
+
+  
         
         
     }

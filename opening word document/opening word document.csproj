@@ -80,6 +80,8 @@
     <Compile Include="POSTagger.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Sentences.cs" />
+    <Compile Include="UniqueWords.cs" />
     <Compile Include="Word2pdf.cs" />
     <Compile Include="Words.cs" />
     <EmbeddedResource Include="Form1.resx">
